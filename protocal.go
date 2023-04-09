@@ -17,7 +17,7 @@ const (
 	FILE_NAME_LEN   = 2 // 文件名长度所占字节数
 	FILE_LEN        = 8 // 文件长度所占字节数
 	FILE_TRANSFER   = 1 // 文件传输类型
-
+	FILE_FETCH      = 2 // 文件拉取类型
 )
 
 // ReadUInt 从TCP连接读取指定长度的无符号整数
@@ -179,6 +179,57 @@ func ReceiveFile(conn net.Conn, buffer []byte, saveDir string) (string, error) {
 		if fileLengthInt == 0 {
 			break
 		}
+	}
+	return filePath, nil
+}
+
+// FetchFile 通过TCP连接拉取文件
+func FetchFile(conn net.Conn, buffer []byte, filePath, saveDir string) (string, error) {
+	// 写入包类型 1byte
+	err := WriteUInt(conn, FILE_FETCH, PACKET_TYPE_LEN)
+	if err != nil {
+		return "", fmt.Errorf("包类型写入失败: %v", err)
+	}
+
+	// 写入文件名大小 2byte
+	filePath = strings.Replace(filePath, "\\", "/", -1)
+	fileName := path.Base(filePath)
+	nameLength := len(fileName)
+	err = WriteUInt(conn, uint64(nameLength), FILE_NAME_LEN)
+	if err != nil {
+		return "", fmt.Errorf("文件名长度写入失败: %v", err)
+	}
+
+	// 写入文件名
+	err = WriteStringUTF8(conn, fileName)
+	if err != nil {
+		return "", fmt.Errorf("文件名写入失败: %v", err)
+	}
+
+	packetType, err := ReadUInt(conn, 1)
+	if err != nil {
+		return "", fmt.Errorf("文件拉取失败，读取文件类型异常: %v", err)
+	}
+	if packetType != FILE_TRANSFER {
+		return "", fmt.Errorf("文件拉取失败，错误的文件类型: %v", packetType)
+	}
+
+	// 拉取文件流
+	return ReceiveFile(conn, buffer, saveDir)
+}
+
+// ParseFileRequest 解析文件请求
+func ParseFileRequest(conn net.Conn) (string, error) {
+	// 读取文件名长度
+	nameLength, err := ReadUInt(conn, FILE_NAME_LEN)
+	if err != nil {
+		return "", fmt.Errorf("文件名长度读取失败: %v", err)
+	}
+
+	// 读取文件名
+	filePath, err := ReadStringUTF8(conn, uint32(nameLength))
+	if err != nil {
+		return "", fmt.Errorf("文件名读取失败: %v", err)
 	}
 	return filePath, nil
 }

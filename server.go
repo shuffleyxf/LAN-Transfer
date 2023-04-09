@@ -14,6 +14,11 @@ const (
 	s_BUFFER_SIZE = 1024 * 1024 //数据缓冲区大小
 )
 
+// 记录操作信息
+func logAction(conn net.Conn, msg string) {
+	fmt.Printf("(%v): %s\n", conn.RemoteAddr(), msg)
+}
+
 // 返回文件存储路径
 func getSaveDir() string {
 	curDir, err := os.Getwd()
@@ -39,31 +44,46 @@ func getSaveDir() string {
 // 接收文件
 func acceptFile(conn net.Conn, buffer []byte) {
 	saveDir := getSaveDir()
-	fmt.Printf("接收文件中，存储路径：%s\n", saveDir)
+	logAction(conn, fmt.Sprintf("接收文件中，存储路径：%s", saveDir))
 	startTime := time.Now()
 	filePath, err := ReceiveFile(conn, buffer, saveDir)
 	endTime := time.Now()
 	elapsedTime := endTime.Sub(startTime)
 	if err == nil {
-		fmt.Printf("文件写入成功：%s, 耗时%v \n", filePath, elapsedTime)
+		logAction(conn, fmt.Sprintf("文件写入成功：%s, 耗时%v", filePath, elapsedTime))
 	} else {
-		fmt.Printf("读取文件到本地失败: %s\n", err)
+		logAction(conn, fmt.Sprintf("读取文件到本地失败: %s\n", err))
+	}
+}
+
+func sendFile(conn net.Conn, buffer []byte) {
+	relFilePath, err := ParseFileRequest(conn)
+	if err != nil {
+		fmt.Printf("解析文件请求异常：%v\n", err)
 	}
 
+	filePath := filepath.Join(getSaveDir(), relFilePath)
+	logAction(conn, fmt.Sprintf("正在发送文件%s...", filePath))
+	err = SendFile(conn, buffer, filePath)
+	if err == nil {
+		logAction(conn, fmt.Sprintf("文件发送成功！"))
+	} else {
+		logAction(conn, fmt.Sprintf("发送文件失败：%v", err))
+	}
 }
 
 // 处理客户端连接
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	fmt.Printf("新的客户端连接： %s\n", conn.RemoteAddr().String())
+	logAction(conn, "新的客户端连接")
 	typeByte := make([]byte, 1)
 	buffer := make([]byte, s_BUFFER_SIZE)
 	// 在这里可以读写客户端的数据
 	for {
 		length, err := conn.Read(typeByte)
 		if err != nil {
-			fmt.Printf("接受数据出现异常(%s)：%s, 连接将断开\n", conn.RemoteAddr(), err)
+			logAction(conn, "连接异常断开")
 			break
 		}
 		if length == 0 {
@@ -74,8 +94,10 @@ func handleConnection(conn net.Conn) {
 		switch packetType {
 		case FILE_TRANSFER:
 			acceptFile(conn, buffer)
+		case FILE_FETCH:
+			sendFile(conn, buffer)
 		default:
-			fmt.Printf("未知的消息类型：%d, 连接(%s)将断开\n", packetType, conn.RemoteAddr().String())
+			logAction(conn, fmt.Sprintf("未知的消息类型：%d, 连接(%s)断开", packetType, conn.RemoteAddr().String()))
 			return
 		}
 	}

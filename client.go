@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,11 +17,30 @@ const (
 func transferFile(conn net.Conn, buffer []byte, args []string) {
 	filePath := args[1]
 	fmt.Printf("正在传输文件：%s\n", filePath)
+	startTime := time.Now()
 	err := SendFile(conn, buffer, filePath)
+	endTime := time.Now()
+	elapsedTime := endTime.Sub(startTime)
 	if err == nil {
-		fmt.Printf("文件%s传输完成\n", filePath)
+		fmt.Printf("文件%s传输完成, 耗时%v \n", filePath, elapsedTime)
 	} else {
 		fmt.Printf("文件%s传输异常：%s, 连接断开", filePath, err)
+		os.Exit(0)
+	}
+}
+
+// 拉取文件
+func fetchFile(conn net.Conn, buffer []byte, args []string) {
+	remoteFilePath := args[1]
+	saveDir := args[2]
+	startTime := time.Now()
+	filePath, err := FetchFile(conn, buffer, remoteFilePath, saveDir)
+	endTime := time.Now()
+	elapsedTime := endTime.Sub(startTime)
+	if err == nil {
+		fmt.Printf("文件%s拉取完成, 耗时%v \n", filePath, elapsedTime)
+	} else {
+		fmt.Printf("文件%s拉取异常：%s, 连接断开", remoteFilePath, err)
 		os.Exit(0)
 	}
 }
@@ -38,7 +58,7 @@ func StartClient() {
 		}
 		fmt.Printf("建立连接失败：%s\n", address)
 	}
-	fmt.Println("连接成功！目前支持以下指令\n文件传输： transfer-file {本地文件路径}")
+	fmt.Println("连接成功！目前支持以下指令\n文件传输： transfer-file {本地文件路径}\n文件拉取：fetch-file {远程文件路径} {本地存储路径}")
 
 	var order string
 	buffer := make([]byte, c_BUFFER_SIZE)
@@ -53,6 +73,8 @@ func StartClient() {
 		switch order {
 		case "transfer-file":
 			transferFile(conn, buffer, items)
+		case "fetch-file":
+			fetchFile(conn, buffer, items)
 		case "bye":
 			fmt.Println("Goodbye!")
 			os.Exit(0)
