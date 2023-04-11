@@ -72,6 +72,16 @@ func sendFile(conn net.Conn, buffer []byte) {
 	}
 }
 
+// 接收消息
+func receiveMsg(conn net.Conn) {
+	content, err := ReadMsg(conn)
+	if err == nil {
+		logAction(conn, fmt.Sprintf("接收到新的消息---%s", content))
+	} else {
+		logAction(conn, fmt.Sprintf("接收消息失败：%v", err))
+	}
+}
+
 // 处理客户端连接
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -96,6 +106,8 @@ func handleConnection(conn net.Conn) {
 			acceptFile(conn, buffer)
 		case FILE_FETCH:
 			sendFile(conn, buffer)
+		case MSG:
+			receiveMsg(conn)
 		default:
 			logAction(conn, fmt.Sprintf("未知的消息类型：%d, 连接(%s)断开", packetType, conn.RemoteAddr().String()))
 			return

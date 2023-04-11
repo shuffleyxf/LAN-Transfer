@@ -14,10 +14,14 @@ import (
 
 const (
 	PACKET_TYPE_LEN = 1 // 数据包类型字段长度所占字节数
-	FILE_NAME_LEN   = 2 // 文件名长度所占字节数
-	FILE_LEN        = 8 // 文件长度所占字节数
-	FILE_TRANSFER   = 1 // 文件传输类型
-	FILE_FETCH      = 2 // 文件拉取类型
+
+	FILE_TRANSFER = 1 // 文件传输类型
+	FILE_FETCH    = 2 // 文件拉取类型
+	FILE_NAME_LEN = 2 // 文件名长度所占字节数
+	FILE_LEN      = 8 // 文件长度所占字节数
+
+	MSG     = 3 //消息类型
+	MSG_LEN = 2 //消息长度所占字节数
 )
 
 // ReadUInt 从TCP连接读取指定长度的无符号整数
@@ -232,4 +236,40 @@ func ParseFileRequest(conn net.Conn) (string, error) {
 		return "", fmt.Errorf("文件名读取失败: %v", err)
 	}
 	return filePath, nil
+}
+
+// WriteMsg 发送消息
+func WriteMsg(conn net.Conn, content string) error {
+	err := WriteUInt(conn, MSG, PACKET_TYPE_LEN)
+	if err != nil {
+		return fmt.Errorf("包类型写入失败: %v", err)
+	}
+
+	contentLength := len(content)
+	err = WriteUInt(conn, uint64(contentLength), MSG_LEN)
+	if err != nil {
+		return fmt.Errorf("消息长度写入失败: %v", err)
+	}
+
+	err = WriteStringUTF8(conn, content)
+	if err != nil {
+		return fmt.Errorf("消息内容写入失败: %v", err)
+	}
+
+	return nil
+}
+
+// ReadMsg 接收消息
+func ReadMsg(conn net.Conn) (string, error) {
+	contentLength, err := ReadUInt(conn, MSG_LEN)
+	if err != nil {
+		return "", fmt.Errorf("消息长度读取失败: %v", err)
+	}
+
+	content, err := ReadStringUTF8(conn, uint32(contentLength))
+	if err != nil {
+		return "", fmt.Errorf("消息读取失败: %v", err)
+	}
+
+	return content, nil
 }

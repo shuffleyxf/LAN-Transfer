@@ -45,6 +45,17 @@ func fetchFile(conn net.Conn, buffer []byte, args []string) {
 	}
 }
 
+// 发送消息
+func sendMsg(conn net.Conn, args []string) {
+	content := strings.Join(args[1:], " ")
+	err := WriteMsg(conn, content)
+	if err == nil {
+		fmt.Printf("消息发送成功！\n")
+	} else {
+		fmt.Printf("发送消息出现异常：%v\n", err)
+	}
+}
+
 // StartClient 客户端模式启动
 func StartClient() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -58,7 +69,7 @@ func StartClient() {
 		}
 		fmt.Printf("建立连接失败：%s\n", address)
 	}
-	fmt.Println("连接成功！目前支持以下指令\n文件传输： transfer-file {本地文件路径}\n文件拉取：fetch-file {远程文件路径} {本地存储路径}")
+	fmt.Println("连接成功！目前支持以下指令\n文件传输： transfer-file {本地文件路径}\n文件拉取：fetch-file {远程文件路径} {本地存储路径}\n接收消息：send-msg {消息内容}")
 
 	var order string
 	buffer := make([]byte, c_BUFFER_SIZE)
@@ -75,6 +86,8 @@ func StartClient() {
 			transferFile(conn, buffer, items)
 		case "fetch-file":
 			fetchFile(conn, buffer, items)
+		case "send-msg":
+			sendMsg(conn, items)
 		case "bye":
 			fmt.Println("Goodbye!")
 			os.Exit(0)
