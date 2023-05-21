@@ -72,8 +72,14 @@ func WriteStringUTF8(conn net.Conn, content string) error {
 
 // SendFile 通过TCP连接发送文件
 func SendFile(conn net.Conn, buffer []byte, filePath string) error {
+	// 先读取文件信息
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("读取文件信息失败：%v", err)
+	}
+
 	// 写入包类型 1byte
-	err := WriteUInt(conn, FILE_TRANSFER, PACKET_TYPE_LEN)
+	err = WriteUInt(conn, FILE_TRANSFER, PACKET_TYPE_LEN)
 	if err != nil {
 		return fmt.Errorf("包类型写入失败: %v", err)
 	}
@@ -94,11 +100,6 @@ func SendFile(conn net.Conn, buffer []byte, filePath string) error {
 	}
 
 	// 写入文件大小
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Errorf("读取文件信息失败：%v", err)
-
-	}
 	fileSize := fileInfo.Size()
 	if err != nil {
 		return fmt.Errorf("文件长度读取失败: %v", err)
@@ -214,12 +215,19 @@ func FetchFile(conn net.Conn, buffer []byte, filePath, saveDir string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("文件拉取失败，读取文件类型异常: %v", err)
 	}
-	if packetType != FILE_TRANSFER {
+	if packetType == FILE_TRANSFER {
+		// 拉取文件流
+		return ReceiveFile(conn, buffer, saveDir)
+	} else if packetType == MSG {
+		errorMsg, err := ReadMsg(conn)
+		if err == nil {
+			return "", fmt.Errorf("文件拉取失败: %v", errorMsg)
+		} else {
+			return "", fmt.Errorf("文件拉取失败，读取错误消息异常: %v", err)
+		}
+	} else {
 		return "", fmt.Errorf("文件拉取失败，错误的文件类型: %v", packetType)
 	}
-
-	// 拉取文件流
-	return ReceiveFile(conn, buffer, saveDir)
 }
 
 // ParseFileRequest 解析文件请求

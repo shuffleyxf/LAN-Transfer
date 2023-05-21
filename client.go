@@ -40,8 +40,7 @@ func fetchFile(conn net.Conn, buffer []byte, args []string) {
 	if err == nil {
 		fmt.Printf("文件%s拉取完成, 耗时%v \n", filePath, elapsedTime)
 	} else {
-		fmt.Printf("文件%s拉取异常：%s, 连接断开", remoteFilePath, err)
-		os.Exit(0)
+		fmt.Printf("文件%s拉取异常：%s\n", remoteFilePath, err)
 	}
 }
 

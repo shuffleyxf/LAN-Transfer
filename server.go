@@ -56,10 +56,21 @@ func acceptFile(conn net.Conn, buffer []byte) {
 	}
 }
 
+// 发送文件失败时的处理
+func sendFileFailed(conn net.Conn, sendError error) {
+	err := WriteMsg(conn, fmt.Sprintf("%v", sendError))
+	if err != nil {
+		logAction(conn, fmt.Sprintf("文件发送失败且回应错误信息失败: %v", err))
+	}
+}
+
+// 发送文件
 func sendFile(conn net.Conn, buffer []byte) {
 	relFilePath, err := ParseFileRequest(conn)
 	if err != nil {
-		fmt.Printf("解析文件请求异常：%v\n", err)
+		logAction(conn, fmt.Sprintf("解析文件请求异常：%v\n", err))
+		sendFileFailed(conn, err)
+		return
 	}
 
 	filePath := filepath.Join(getSaveDir(), relFilePath)
@@ -69,6 +80,7 @@ func sendFile(conn net.Conn, buffer []byte) {
 		logAction(conn, fmt.Sprintf("文件发送成功！"))
 	} else {
 		logAction(conn, fmt.Sprintf("发送文件失败：%v", err))
+		sendFileFailed(conn, err)
 	}
 }
 
